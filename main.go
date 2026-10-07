@@ -1,39 +1,54 @@
 package main
 
 import (
+	"database/sql"
 	"log"
 	"os"
 
 	"github.com/Ehs-Colin/gator/internal/config"
+	"github.com/Ehs-Colin/gator/internal/database"
+	_ "github.com/lib/pq"
 )
 
 type State struct {
 	config *config.Config
+	db     *database.Queries
 }
 
 func main() {
+
 	cfg, err := config.ReadConfig()
 	if err != nil {
 		log.Fatalf("failed to read config: %v", err)
 	}
 	state := &State{config: cfg}
+
+	db, err := sql.Open("postgres", state.config.DbUrl)
+	if err != nil {
+		log.Fatalf("failed to connect to database: %v", err)
+	}
+	defer db.Close()
+	dbQueries := database.New(db)
+	state.db = dbQueries
+
 	cmds := &Commands{commands: map[string]Command{}}
 
-	cmds.Register("login", Command{
-		Name:   "login",
-		args:   []string{},
-		Action: HandlerLogin,
-	})
+	cmds.Register("login", HandlerLogin)
+	cmds.Register("register", HandlerRegister)
+	cmds.Register("reset", HandlerReset)
+	cmds.Register("users", HandlerGetUsers)
+
 	if len(os.Args) < 2 {
-		log.Fatal("Usage: gator login <username>")
-		return
+		log.Fatal("Usage: cli <command> [args...]")
 	}
-	cmd, ok := cmds.Get(os.Args[1])
+
+	commandName := os.Args[1]
+	cmd, ok := cmds.Get(commandName)
 	if !ok {
-		log.Fatalf("command not found: login")
+		log.Fatalf("command not found: %s", commandName)
 	}
-	cmd.args = os.Args[2:]
-	if err := cmds.Run(state, cmd); err != nil {
-		log.Fatalf("failed to run command: %v", err)
+	args := os.Args[2:]
+	if err := cmds.Run(state, cmd, args); err != nil {
+		log.Fatal(err)
 	}
 }
