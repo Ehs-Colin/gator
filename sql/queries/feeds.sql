@@ -14,6 +14,25 @@ RETURNING *;
 SELECT * FROM feeds
 WHERE name = $1 LIMIT 1;
 
--- name: GetUserFeeds :many
+-- name: GetFeedByUrl :one
 SELECT * FROM feeds
+WHERE url = $1 LIMIT 1;
+
+-- name: GetUserFeeds :many
+SELECT feeds.* FROM feeds
+JOIN users on feeds.user_id = users.id
 WHERE user_id = $1;
+
+-- name: GetAllFeeds :many
+SELECT * from feeds;
+
+-- name: MarkFeedFetched :one
+UPDATE feeds
+SET last_fetched_at = NOW(),
+    updated_at = NOW()
+WHERE id = $1
+RETURNING *;
+
+-- name: GetNextFeedToFetch :one
+SELECT * FROM feeds
+ORDER BY last_fetched_at asc NULLS FIRST;

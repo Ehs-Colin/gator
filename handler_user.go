@@ -40,7 +40,7 @@ func HandlerLogin(state *State, cmd Command, args ...string) error {
 	if state.config == nil {
 		return fmt.Errorf("config is not initialized")
 	}
-	dbUser, err := state.db.GetUser(context.Background(), username)
+	dbUser, err := state.db.GetUserByName(context.Background(), username)
 	if err != nil {
 		return err
 	}
