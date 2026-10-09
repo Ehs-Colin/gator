@@ -41,11 +41,12 @@ func HandlerAddFeed(state *State, cmd Command, user database.User, args ...strin
 }
 
 func printFeed(feed database.Feed, userName database.User) {
-	fmt.Println("Feed Id:    ", feed.ID)
-	fmt.Println("Created At: ", feed.CreatedAt)
-	fmt.Println("Name:       ", feed.Name)
-	fmt.Println("Url:        ", feed.Url)
-	fmt.Println("User:       ", userName.Name)
+	fmt.Println(" * Feed Id:       ", feed.ID)
+	fmt.Println(" * Created At:    ", feed.CreatedAt)
+	fmt.Println(" * Name:          ", feed.Name)
+	fmt.Println(" * Url:           ", feed.Url)
+	fmt.Println(" * User:          ", userName.Name)
+	fmt.Println(" * LastFetchedAt: ", feed.LastFetchedAt.Time)
 	fmt.Println("=====================================")
 }
 

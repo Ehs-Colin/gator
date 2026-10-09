@@ -2,9 +2,14 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
-	"html"
+	"log"
+	"strings"
 	"time"
+
+	"github.com/Ehs-Colin/gator/internal/database"
+	"github.com/google/uuid"
 )
 
 func HandlerGetRSS(state *State, cmd Command, args ...string) error {
@@ -15,25 +20,11 @@ func HandlerGetRSS(state *State, cmd Command, args ...string) error {
 	if err != nil {
 		return err
 	}
+	fmt.Printf("Collecting feeds every %s...", timeBetweenRequests)
 	ticker := time.NewTicker(timeBetweenRequests)
 	for ; ; <-ticker.C {
 		scrapeFeeds(state)
 	}
-	// rssFeed, err := fetchFeed(context.Background(), "https://www.wagslane.dev/index.xml")
-	// if err != nil {
-	// 	return err
-	// }
-	// fmt.Printf("Title: %s\n", html.UnescapeString(rssFeed.Channel.Title))
-	// fmt.Printf("Link: %s\n", rssFeed.Channel.Link)
-	// fmt.Printf("Description: %s\n", html.UnescapeString(rssFeed.Channel.Description))
-	// fmt.Println("Items:")
-	// for _, item := range rssFeed.Channel.Item {
-	// 	fmt.Println("Title: ", html.UnescapeString(item.Title))
-	// 	fmt.Println("Link: ", item.Link)
-	// 	fmt.Println("Description: ", html.UnescapeString(item.Description))
-	// 	fmt.Println("PubDate: ", html.UnescapeString(item.PubDate))
-	// 	fmt.Println("")
-	// }
 	return nil
 }
 
@@ -53,11 +44,38 @@ func scrapeFeeds(state *State) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("RSS Feed: %s\n", html.UnescapeString(rssFeed.Channel.Title))
-	fmt.Println("Items:")
 	for _, item := range rssFeed.Channel.Item {
-		fmt.Println("Title: ", html.UnescapeString(item.Title))
-		fmt.Println("========================================")
+		SavePost(state, item, dbFeed)
 	}
+	return nil
+}
+
+func SavePost(state *State, item RSSItem, feed database.Feed) error {
+	itemDescription := sql.NullString{
+		String: item.Description,
+		Valid:  len(item.Description) > 0,
+	}
+	publishedAt := sql.NullTime{}
+	if t, err := time.Parse(time.RFC1123Z, item.PubDate); err == nil {
+		publishedAt = sql.NullTime{
+			Time:  t,
+			Valid: true,
+		}
+	}
+
+	_, err := state.db.CreatePost(context.Background(), database.CreatePostParams{
+		ID:          uuid.New(),
+		Title:       item.Title,
+		Url:         item.Link,
+		Description: itemDescription,
+		PublishedAt: publishedAt,
+		FeedID:      feed.ID,
+	})
+	if err != nil {
+		if !strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
+			log.Printf("Couldn't create post: %v", err)
+		}
+	}
+
 	return nil
 }
